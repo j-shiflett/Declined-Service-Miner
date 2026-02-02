@@ -8,3 +8,4 @@
   },
   "include": ["src/renderer/src", "src/renderer/index.html", "electron", "electron.vite.config.ts"]
 }
+

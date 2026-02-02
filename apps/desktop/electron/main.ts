@@ -1,5 +1,9 @@
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
+import { openDb } from './storage'
+import { registerIpc } from './ipc'
+
+let db: ReturnType<typeof openDb> | null = null
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -18,6 +22,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  db = openDb()
+  registerIpc(db)
+
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -26,4 +33,12 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', () => {
+  try {
+    db?.close()
+  } catch {
+    // ignore
+  }
 })

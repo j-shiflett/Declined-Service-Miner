@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { analyze, parseCsv, type DeclinedLine, type Opportunity, type RoHeader } from '@dsm/core'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 const roCsv = ref<string>('')
 const linesCsv = ref<string>('')
 const combinedCsv = ref<string>('')
+
+type Dealer = { id: number; name: string; createdAt: string }
+
+const baseDir = ref<string>('')
+const dealers = ref<Dealer[]>([])
+const dealerName = ref('')
+const selectedDealerId = ref<number | null>(null)
 
 const results = ref<Opportunity[] | null>(null)
 const error = ref<string | null>(null)
@@ -17,6 +24,34 @@ function onFile(e: Event, set: (v: string) => void) {
   reader.onload = () => set(String(reader.result ?? ''))
   reader.readAsText(file)
 }
+
+async function refreshDealers() {
+  dealers.value = await window.dsm.listDealers()
+  if (dealers.value.length && selectedDealerId.value === null) {
+    selectedDealerId.value = dealers.value[0].id
+  }
+}
+
+async function createDealer() {
+  error.value = null
+  try {
+    const d = await window.dsm.createDealer(dealerName.value)
+    dealerName.value = ''
+    await refreshDealers()
+    selectedDealerId.value = d.id
+  } catch (e: any) {
+    error.value = e?.message ?? String(e)
+  }
+}
+
+onMounted(async () => {
+  try {
+    baseDir.value = await window.dsm.getBaseDir()
+    await refreshDealers()
+  } catch (e: any) {
+    error.value = e?.message ?? String(e)
+  }
+})
 
 function run() {
   error.value = null
@@ -64,6 +99,36 @@ function run() {
     <h2 style="margin: 0">Declined Service Miner</h2>
     <p style="color:#666; margin-top: 6px">Import RO exports and generate a prioritized callback list.</p>
 
+    <div style="margin-top: 12px; border: 1px solid #ddd; padding: 12px">
+      <h3 style="margin-top:0">Dealership setup</h3>
+      <div style="display:flex; gap: 12px; flex-wrap: wrap; align-items: center">
+        <div>
+          <div style="font-size: 12px; color:#666">Local data folder</div>
+          <code>{{ baseDir || '(loading...)' }}</code>
+        </div>
+
+        <div style="flex: 1"></div>
+
+        <label>
+          Dealership:
+          <select v-model.number="selectedDealerId">
+            <option v-for="d in dealers" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+        </label>
+
+        <button @click="refreshDealers">Refresh</button>
+      </div>
+
+      <div style="display:flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap">
+        <input v-model="dealerName" placeholder="Add new dealership name" style="min-width: 260px" />
+        <button @click="createDealer" :disabled="!dealerName.trim()">Add dealership</button>
+      </div>
+
+      <p v-if="!dealers.length" style="color:#c00; margin-top: 10px">
+        No dealerships yet. Add one above to get started.
+      </p>
+    </div>
+
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px">
       <div style="border: 1px solid #ddd; padding: 12px">
         <h3>Option A: Two files</h3>
@@ -87,7 +152,7 @@ function run() {
     </div>
 
     <div style="margin-top: 12px">
-      <button @click="run">Run</button>
+      <button @click="run" :disabled="!selectedDealerId">Run</button>
     </div>
 
     <p v-if="error" style="color:#c00">{{ error }}</p>
