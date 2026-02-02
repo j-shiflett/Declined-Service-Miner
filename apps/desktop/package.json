@@ -33,7 +33,12 @@
       "dist-electron/**"
     ],
     "win": {
-      "target": ["nsis"]
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
     }
   }
 }

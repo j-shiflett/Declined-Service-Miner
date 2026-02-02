@@ -21,18 +21,24 @@ Declined services are often “free money left on the table”. This tool helps 
 
 This repo includes a Vue + Electron desktop app intended for **non-technical** dealership users.
 
-Run it in dev:
+### Install (Windows)
+
+- No-admin install from ZIP: `docs/INSTALL_WINDOWS.md`
+
+### Run it in dev (Mac)
 
 ```bash
 pnpm install
 pnpm --filter @dsm/desktop dev
 ```
 
-Build a Windows installer (later):
+### Build Windows portable EXE
 
-```bash
-pnpm --filter @dsm/desktop dist
-```
+Local Windows builds are easiest via CI.
+
+- GitHub Actions workflow: `.github/workflows/windows-portable.yml`
+
+(We’ll produce a portable `.exe` you can zip and distribute.)
 
 
 ### 1) Install
