@@ -1,0 +1,17 @@
+[project]
+name = "declined-service-miner"
+version = "0.1.0"
+description = "Dealership declined service mining: CSV in, callback list out."
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.scripts]
+dsm = "dsm.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

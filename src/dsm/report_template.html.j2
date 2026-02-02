@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Declined Service Miner Report</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f6f6f6; text-align: left; }
+    code { background: #f1f1f1; padding: 2px 4px; }
+  </style>
+</head>
+<body>
+  <h2>Declined Service Miner</h2>
+  <p>Generated: <code>{{ generated_at }}</code></p>
+
+  <h3>Top opportunities</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>RO #</th>
+        <th>Date</th>
+        <th>Advisor</th>
+        <th>Customer</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th>Declined $</th>
+        <th>Lines</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td><code>{{ row.ro_number }}</code></td>
+        <td>{{ row.ro_date }}</td>
+        <td>{{ row.advisor or '' }}</td>
+        <td>{{ row.customer_name or '' }}</td>
+        <td>{{ row.phone or '' }}</td>
+        <td>{{ row.email or '' }}</td>
+        <td>${{ "%.2f"|format(row.declined_total) }}</td>
+        <td>{{ row.line_count }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <p style="color:#666; font-size: 12px; margin-top: 16px">
+    Note: This is a local-first tool. Do not upload customer PII into public systems.
+  </p>
+</body>
+</html>
