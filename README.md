@@ -17,6 +17,24 @@ Declined services are often “free money left on the table”. This tool helps 
 
 ## Quick start
 
+## Desktop app (Windows release, Mac dev)
+
+This repo includes a Vue + Electron desktop app intended for **non-technical** dealership users.
+
+Run it in dev:
+
+```bash
+pnpm install
+pnpm --filter @dsm/desktop dev
+```
+
+Build a Windows installer (later):
+
+```bash
+pnpm --filter @dsm/desktop dist
+```
+
+
 ### 1) Install
 
 ```bash

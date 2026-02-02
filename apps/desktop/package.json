@@ -1,0 +1,38 @@
+{
+  "name": "@dsm/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "pnpm --filter @dsm/core build && electron-vite dev",
+    "build": "pnpm --filter @dsm/core build && electron-vite build",
+    "pack": "pnpm --filter @dsm/core build && electron-builder --dir",
+    "dist": "pnpm --filter @dsm/core build && electron-builder"
+  },
+  "dependencies": {
+    "@dsm/core": "workspace:*",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "electron": "^34.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.12"
+  },
+  "build": {
+    "appId": "com.jshiflett.declinedserviceminer",
+    "productName": "Declined Service Miner",
+    "files": [
+      "dist/**",
+      "dist-electron/**"
+    ],
+    "win": {
+      "target": ["nsis"]
+    }
+  }
+}
