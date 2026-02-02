@@ -50,6 +50,17 @@ export function openDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_outcomes_dealer_ro ON outcomes(dealer_id, ro_number);
+
+    CREATE TABLE IF NOT EXISTS mappings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      dealer_id INTEGER NOT NULL,
+      kind TEXT NOT NULL, -- 'ro' or 'lines' or 'combined'
+      mapping_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(dealer_id, kind),
+      FOREIGN KEY(dealer_id) REFERENCES dealers(id)
+    );
   `)
 
   return db

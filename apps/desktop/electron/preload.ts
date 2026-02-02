@@ -17,4 +17,9 @@ contextBridge.exposeInMainWorld('dsm', {
     ipcRenderer.invoke('outcomes:get', { dealerId, roNumber }) as Promise<any>,
   setOutcome: (dealerId: number, roNumber: string, status: string, notes?: string, nextFollowUp?: string) =>
     ipcRenderer.invoke('outcomes:set', { dealerId, roNumber, status, notes, nextFollowUp }) as Promise<any>,
+
+  getMapping: (dealerId: number, kind: 'ro' | 'lines' | 'combined') =>
+    ipcRenderer.invoke('mappings:get', { dealerId, kind }) as Promise<Record<string, string> | null>,
+  setMapping: (dealerId: number, kind: 'ro' | 'lines' | 'combined', mapping: Record<string, string>) =>
+    ipcRenderer.invoke('mappings:set', { dealerId, kind, mapping }) as Promise<Record<string, string> | null>,
 })

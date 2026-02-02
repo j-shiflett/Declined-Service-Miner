@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { analyze, parseCsv, type DeclinedLine, type Opportunity, type RoHeader } from '@dsm/core'
 import { onMounted, ref } from 'vue'
+import { applyMapping, headersOf, missingRequired } from './csvMapping'
 
 const roCsv = ref<string>('')
 const linesCsv = ref<string>('')
 const combinedCsv = ref<string>('')
+
+// Mapping UI state
+const roMapping = ref<Record<string, string>>({ ro_number: 'ro_number', ro_date: 'ro_date' })
+const linesMapping = ref<Record<string, string>>({ ro_number: 'ro_number', line_desc: 'line_desc', declined_amount: 'declined_amount' })
+const roHeaders = ref<string[]>([])
+const lineHeaders = ref<string[]>([])
+const showMapping = ref(false)
 
 type Dealer = { id: number; name: string; createdAt: string }
 
@@ -23,12 +31,28 @@ const outcomeStatus = ref<string>('')
 const outcomeNotes = ref<string>('')
 const outcomeNext = ref<string>('')
 
-function onFile(e: Event, set: (v: string) => void) {
+function onFile(e: Event, set: (v: string) => void, kind: 'ro' | 'lines' | 'combined') {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
   const reader = new FileReader()
-  reader.onload = () => set(String(reader.result ?? ''))
+  reader.onload = () => {
+    const txt = String(reader.result ?? '')
+    set(txt)
+
+    if (kind === 'ro') roHeaders.value = headersOf(txt)
+    if (kind === 'lines') lineHeaders.value = headersOf(txt)
+
+    // if it doesn't look like the expected schema, show mapping UI
+    if (kind === 'ro') {
+      const missing = missingRequired(roMapping.value, ['ro_number', 'ro_date'])
+      if (missing.length) showMapping.value = true
+    }
+    if (kind === 'lines') {
+      const missing = missingRequired(linesMapping.value, ['ro_number', 'line_desc', 'declined_amount'])
+      if (missing.length) showMapping.value = true
+    }
+  }
   reader.readAsText(file)
 }
 
@@ -39,6 +63,20 @@ async function refreshDealers() {
   }
 }
 
+async function loadMappings() {
+  if (!selectedDealerId.value) return
+  const ro = await window.dsm.getMapping(selectedDealerId.value, 'ro')
+  const lines = await window.dsm.getMapping(selectedDealerId.value, 'lines')
+  if (ro) roMapping.value = ro
+  if (lines) linesMapping.value = lines
+}
+
+async function saveMappings() {
+  if (!selectedDealerId.value) return
+  await window.dsm.setMapping(selectedDealerId.value, 'ro', roMapping.value)
+  await window.dsm.setMapping(selectedDealerId.value, 'lines', linesMapping.value)
+}
+
 async function createDealer() {
   error.value = null
   try {
@@ -46,6 +84,7 @@ async function createDealer() {
     dealerName.value = ''
     await refreshDealers()
     selectedDealerId.value = d.id
+    await loadMappings()
   } catch (e: any) {
     error.value = e?.message ?? String(e)
   }
@@ -55,6 +94,7 @@ onMounted(async () => {
   try {
     baseDir.value = await window.dsm.getBaseDir()
     await refreshDealers()
+    await loadMappings()
   } catch (e: any) {
     error.value = e?.message ?? String(e)
   }
@@ -96,6 +136,11 @@ async function saveOutcome() {
   }
 }
 
+async function maybeAutoSaveMappings() {
+  if (!selectedDealerId.value) return
+  await saveMappings()
+}
+
 function run() {
   error.value = null
   results.value = null
@@ -105,7 +150,7 @@ function run() {
     let lineRows: DeclinedLine[] = []
 
     if (combinedCsv.value.trim()) {
-      // naive combined mode: require columns for both
+      // combined mode not mapped yet (MVP). If it breaks, show mapping UI.
       const rows = parseCsv<any>(combinedCsv.value)
       roRows = rows.map((r) => ({
         ro_number: r.ro_number,
@@ -127,8 +172,22 @@ function run() {
       if (!roCsv.value.trim() || !linesCsv.value.trim()) {
         throw new Error('Provide either a combined CSV, or both RO headers + declined lines CSV files.')
       }
-      roRows = parseCsv<RoHeader>(roCsv.value)
-      lineRows = parseCsv<DeclinedLine>(linesCsv.value)
+
+      const roRaw = parseCsv<any>(roCsv.value)
+      const lineRaw = parseCsv<any>(linesCsv.value)
+
+      const missingRo = missingRequired(roMapping.value, ['ro_number', 'ro_date'])
+      const missingLines = missingRequired(linesMapping.value, ['ro_number', 'line_desc', 'declined_amount'])
+      if (missingRo.length || missingLines.length) {
+        showMapping.value = true
+        throw new Error('CSV columns need mapping. Click “Fix CSV columns”.')
+      }
+
+      roRows = applyMapping(roRaw, roMapping.value) as RoHeader[]
+      lineRows = applyMapping(lineRaw, linesMapping.value) as DeclinedLine[]
+
+      // best-effort persistence
+      void maybeAutoSaveMappings()
     }
 
     results.value = analyze(roRows, lineRows)
@@ -177,17 +236,17 @@ function run() {
       <div style="border: 1px solid #ddd; padding: 12px">
         <h3>Option A: Two files</h3>
         <div>
-          <label>RO headers CSV: <input type="file" accept=".csv" @change="(e) => onFile(e, (v) => (roCsv.value = v))" /></label>
+          <label>RO headers CSV: <input type="file" accept=".csv" @change="(e) => onFile(e, (v) => (roCsv.value = v), 'ro')" /></label>
         </div>
         <div style="margin-top: 8px">
-          <label>Declined lines CSV: <input type="file" accept=".csv" @change="(e) => onFile(e, (v) => (linesCsv.value = v))" /></label>
+          <label>Declined lines CSV: <input type="file" accept=".csv" @change="(e) => onFile(e, (v) => (linesCsv.value = v), 'lines')" /></label>
         </div>
       </div>
 
       <div style="border: 1px solid #ddd; padding: 12px">
         <h3>Option B: Combined file</h3>
         <div>
-          <label>Combined CSV: <input type="file" accept=".csv" @change="(e) => onFile(e, (v) => (combinedCsv.value = v))" /></label>
+          <label>Combined CSV: <input type="file" accept=".csv" @change="(e) => onFile(e, (v) => (combinedCsv.value = v), 'combined')" /></label>
         </div>
         <p style="color:#666; font-size: 12px; margin-top: 8px">
           Combined CSV must include both header fields (ro_number, ro_date) and line fields (line_desc, declined_amount).
@@ -198,7 +257,100 @@ function run() {
     <div style="margin-top: 12px; display:flex; gap: 8px; align-items:center; flex-wrap: wrap">
       <button @click="run" :disabled="!selectedDealerId">Run</button>
       <button @click="exportRun" :disabled="!selectedDealerId || !results">Export (save CSV + report)</button>
+      <button @click="showMapping = true" :disabled="!selectedDealerId">Fix CSV columns</button>
       <span v-if="lastRunDir" style="color:#666">Saved to: <code>{{ lastRunDir }}</code></span>
+    </div>
+
+    <div v-if="showMapping" style="margin-top: 12px; border: 1px solid #ddd; padding: 12px">
+      <h3 style="margin-top:0">CSV Column Mapping (saved per dealership)</h3>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px">
+        <div>
+          <h4>RO headers mapping</h4>
+          <p style="color:#666; font-size: 12px">Pick the matching column from your RO headers export.</p>
+          <div style="display:grid; grid-template-columns: 160px 1fr; gap: 8px; align-items:center">
+            <div>ro_number *</div>
+            <select v-model="roMapping.ro_number">
+              <option value="">(select)</option>
+              <option v-for="h in roHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>ro_date *</div>
+            <select v-model="roMapping.ro_date">
+              <option value="">(select)</option>
+              <option v-for="h in roHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>advisor</div>
+            <select v-model="roMapping.advisor">
+              <option value="">(none)</option>
+              <option v-for="h in roHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>customer_name</div>
+            <select v-model="roMapping.customer_name">
+              <option value="">(none)</option>
+              <option v-for="h in roHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>phone</div>
+            <select v-model="roMapping.phone">
+              <option value="">(none)</option>
+              <option v-for="h in roHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>email</div>
+            <select v-model="roMapping.email">
+              <option value="">(none)</option>
+              <option v-for="h in roHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <h4>Declined lines mapping</h4>
+          <p style="color:#666; font-size: 12px">Pick the matching column from your declined lines export.</p>
+          <div style="display:grid; grid-template-columns: 160px 1fr; gap: 8px; align-items:center">
+            <div>ro_number *</div>
+            <select v-model="linesMapping.ro_number">
+              <option value="">(select)</option>
+              <option v-for="h in lineHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>line_desc *</div>
+            <select v-model="linesMapping.line_desc">
+              <option value="">(select)</option>
+              <option v-for="h in lineHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>declined_amount *</div>
+            <select v-model="linesMapping.declined_amount">
+              <option value="">(select)</option>
+              <option v-for="h in lineHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+
+            <div>declined_category</div>
+            <select v-model="linesMapping.declined_category">
+              <option value="">(none)</option>
+              <option v-for="h in lineHeaders" :key="h" :value="h">{{ h }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; display:flex; gap: 8px; flex-wrap: wrap">
+        <button
+          @click="saveMappings().then(() => (showMapping = false))"
+          :disabled="missingRequired(roMapping, ['ro_number','ro_date']).length || missingRequired(linesMapping, ['ro_number','line_desc','declined_amount']).length"
+        >
+          Save mapping
+        </button>
+        <button @click="showMapping = false">Close</button>
+      </div>
+
+      <p style="color:#666; font-size: 12px; margin-top: 8px">
+        Tip: load a CSV first so the dropdowns can show its headers.
+      </p>
     </div>
 
     <p v-if="error" style="color:#c00">{{ error }}</p>

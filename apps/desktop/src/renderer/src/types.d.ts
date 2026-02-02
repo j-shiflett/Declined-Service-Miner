@@ -11,6 +11,9 @@ declare global {
 
       getOutcome: (dealerId: number, roNumber: string) => Promise<any>
       setOutcome: (dealerId: number, roNumber: string, status: string, notes?: string, nextFollowUp?: string) => Promise<any>
+
+      getMapping: (dealerId: number, kind: 'ro' | 'lines' | 'combined') => Promise<Record<string, string> | null>
+      setMapping: (dealerId: number, kind: 'ro' | 'lines' | 'combined', mapping: Record<string, string>) => Promise<Record<string, string> | null>
     }
   }
 }

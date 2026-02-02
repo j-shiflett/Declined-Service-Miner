@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3'
 import path from 'path'
 
 import { createDealer, getBaseDir, getDealer, getDealerDir, getOutcome, listDealers, upsertOutcome } from './storage'
+import { getMapping, setMapping } from './mappings'
 import { writeRunFiles, type Opportunity } from './export'
 
 export function registerIpc(db: Database.Database) {
@@ -42,6 +43,17 @@ export function registerIpc(db: Database.Database) {
     'outcomes:set',
     async (_evt, args: { dealerId: number; roNumber: string; status: string; notes?: string; nextFollowUp?: string }) => {
       return upsertOutcome(db, args)
+    }
+  )
+
+  ipcMain.handle('mappings:get', async (_evt, args: { dealerId: number; kind: 'ro' | 'lines' | 'combined' }) => {
+    return getMapping(db, args.dealerId, args.kind)
+  })
+
+  ipcMain.handle(
+    'mappings:set',
+    async (_evt, args: { dealerId: number; kind: 'ro' | 'lines' | 'combined'; mapping: Record<string, string> }) => {
+      return setMapping(db, args)
     }
   )
 }
